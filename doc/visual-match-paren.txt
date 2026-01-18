@@ -1,0 +1,148 @@
+*visual-match-paren.txt*  Highlight matching pairs in visual mode
+
+==============================================================================
+Table of Contents                          *visual-match-paren-contents*
+
+1. Introduction ............................ |visual-match-paren-intro|
+2. Features ................................ |visual-match-paren-features|
+3. Installation ............................ |visual-match-paren-installation|
+4. Usage ................................... |visual-match-paren-usage|
+5. Configuration ........................... |visual-match-paren-config|
+6. Commands ................................ |visual-match-paren-commands|
+7. Highlights .............................. |visual-match-paren-highlights|
+8. License ................................. |visual-match-paren-license|
+
+==============================================================================
+1. Introduction                              *visual-match-paren-intro*
+
+visual-match-paren.nvim is a Neovim plugin that highlights matching pairs
+of braces `{}` and brackets `[]` when you visually select lines containing
+them.
+
+When you select a line ending with an opening character (`{` or `[`), the
+plugin highlights the matching closing character. Conversely, when you
+select a line starting with a closing character (`}` or `]`), it highlights
+the matching opening character.
+
+==============================================================================
+2. Features                                  *visual-match-paren-features*
+
+- Automatically highlights matching pairs for braces `{}` and brackets `[]`
+- Supports forward matching: select a line ending with `{` or `[` to
+  highlight the closing pair
+- Supports backward matching: select a line starting with `}` or `]` to
+  highlight the opening pair
+- Works in visual, visual-line, and visual-block modes
+- Customizable highlight group
+- Lightweight and performant
+- Correctly handles nested structures
+
+==============================================================================
+3. Installation                              *visual-match-paren-installation*
+
+Using lazy.nvim: >lua
+    {
+      "jugarpeupv/visual-match-paren.nvim",
+      config = function()
+        require("visual-match-paren").setup({
+          highlight_group = "MatchParen",
+          enabled = true,
+        })
+      end,
+    }
+<
+
+Using packer.nvim: >lua
+    use {
+      "jugarpeupv/visual-match-paren.nvim",
+      config = function()
+        require("visual-match-paren").setup()
+      end,
+    }
+<
+
+==============================================================================
+4. Usage                                     *visual-match-paren-usage*
+
+Simply enter visual mode (|v|, |V|, or |CTRL-V|) and select a line that:
+
+- Ends with `{` or `[` - highlights the matching closing pair
+- Starts with `}` or `]` - highlights the matching opening pair
+
+The plugin automatically detects the character and highlights both the
+selected character and its matching pair.
+
+Example with braces: >
+    {
+      "probando": {
+        "he": "ho"
+      }
+    }
+<
+
+When you visually select the line `"probando": {`, the closing `}` will be
+highlighted.
+
+Example with brackets: >
+    const arr = [
+      1, 2, 3
+    ]
+<
+
+When you select the line `const arr = [`, the closing `]` will be
+highlighted. Similarly, selecting a line with the closing bracket will
+highlight its matching opening bracket.
+
+==============================================================================
+5. Configuration                             *visual-match-paren-config*
+
+                                             *visual-match-paren.setup()*
+setup({opts})
+    Configure the plugin.
+
+    Parameters: ~
+        {opts} (table|nil) Configuration options:
+            • highlight_group (string): The highlight group to use for
+              matching pairs. Default: "MatchParen"
+            • enabled (boolean): Enable the plugin by default.
+              Default: true
+
+    Usage: >lua
+        require("visual-match-paren").setup({
+          highlight_group = "MatchParen",
+          enabled = true,
+        })
+<
+
+==============================================================================
+6. Commands                                  *visual-match-paren-commands*
+
+                                             *:VisualMatchParenToggle*
+:VisualMatchParenToggle
+    Toggle the plugin on/off. When disabled, no highlights will be shown
+    in visual mode.
+
+==============================================================================
+7. Highlights                                *visual-match-paren-highlights*
+
+The plugin uses the highlight group specified in the configuration
+(default: "MatchParen") to highlight matching pairs. You can customize this
+by:
+
+1. Using a different built-in highlight group in the setup configuration
+2. Creating your own highlight group: >vim
+    highlight VisualMatchParen guifg=#ff0000 guibg=#000000
+<
+   Then configure the plugin to use it: >lua
+    require("visual-match-paren").setup({
+      highlight_group = "VisualMatchParen",
+    })
+<
+
+==============================================================================
+8. License                                   *visual-match-paren-license*
+
+MIT License
+
+==============================================================================
+vim:tw=78:ts=8:ft=help:norl:
