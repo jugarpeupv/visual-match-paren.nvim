@@ -48,8 +48,8 @@ describe("visual-match-paren", function()
       local highlights = vim.api.nvim_buf_get_extmarks(0, namespace, 0, -1, {details = true})
       
       -- Should highlight line 14 (closing brace for options), not line 15 or 16
-      assert.is_true(#highlights > 0, "Expected at least one highlight")
-      local highlight_line = highlights[1][2] + 1
+      assert.is_true(#highlights > 1, "Expected at least two highlights")
+      local highlight_line = highlights[2][2] + 1
       assert.equals(14, highlight_line, "Should highlight closing brace on line 14 for options object")
       
       vim.cmd("normal! \\<ESC>")
@@ -92,8 +92,8 @@ describe("visual-match-paren", function()
       local highlights = vim.api.nvim_buf_get_extmarks(0, namespace, 0, -1, {details = true})
       
       -- Should highlight line 15 (closing brace for set-projects-version)
-      assert.is_true(#highlights > 0, "Expected at least one highlight")
-      local highlight_line = highlights[1][2] + 1
+      assert.is_true(#highlights > 1, "Expected at least two highlights")
+      local highlight_line = highlights[2][2] + 1
       assert.equals(15, highlight_line, "Should highlight closing brace on line 15 for set-projects-version object")
       
       vim.cmd("normal! \\<ESC>")
@@ -136,8 +136,8 @@ describe("visual-match-paren", function()
       local highlights = vim.api.nvim_buf_get_extmarks(0, namespace, 0, -1, {details = true})
       
       -- Should highlight line 16 (closing brace for targets)
-      assert.is_true(#highlights > 0, "Expected at least one highlight")
-      local highlight_line = highlights[1][2] + 1
+      assert.is_true(#highlights > 1, "Expected at least two highlights")
+      local highlight_line = highlights[2][2] + 1
       assert.equals(16, highlight_line, "Should highlight closing brace on line 16 for targets object")
       
       vim.cmd("normal! \\<ESC>")
@@ -170,8 +170,8 @@ describe("visual-match-paren", function()
       local highlights = vim.api.nvim_buf_get_extmarks(0, namespace, 0, -1, {details = true})
       
       -- Should highlight line 4 (closing brace for probando)
-      assert.is_true(#highlights > 0, "Expected at least one highlight")
-      local highlight_line = highlights[1][2] + 1
+      assert.is_true(#highlights > 1, "Expected at least two highlights")
+      local highlight_line = highlights[2][2] + 1
       assert.equals(4, highlight_line, "Should highlight closing brace on line 4")
       
       vim.cmd("normal! \\<ESC>")
