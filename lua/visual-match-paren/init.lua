@@ -145,6 +145,76 @@ function M.highlight_matching_brace()
         match_col
       )
     end
+  -- Check if line ends with opening bracket
+  elseif trimmed:match("%[$") then
+    local open_bracket_col = line:find("%[[^%[]*$")
+    if not open_bracket_col then
+      return
+    end
+    
+    vim.api.nvim_win_set_cursor(0, {first_selected_line, open_bracket_col - 1})
+    
+    local ok, match_pos = pcall(vim.fn.searchpairpos, "\\[", "", "\\]", "nW", "", 0, 100)
+    
+    vim.api.nvim_win_set_cursor(0, saved_cursor)
+    
+    if ok and match_pos and match_pos[1] > 0 and match_pos[2] > 0 then
+      local match_line = match_pos[1]
+      local match_col = match_pos[2]
+      
+      vim.api.nvim_buf_add_highlight(
+        bufnr,
+        namespace,
+        M.config.highlight_group,
+        first_selected_line - 1,
+        open_bracket_col - 1,
+        open_bracket_col
+      )
+      
+      vim.api.nvim_buf_add_highlight(
+        bufnr,
+        namespace,
+        M.config.highlight_group,
+        match_line - 1,
+        match_col - 1,
+        match_col
+      )
+    end
+  -- Check if line starts with closing bracket
+  elseif trimmed:match("^%]") then
+    local close_bracket_col = line:find("%]")
+    if not close_bracket_col then
+      return
+    end
+    
+    vim.api.nvim_win_set_cursor(0, {first_selected_line, close_bracket_col - 1})
+    
+    local ok, match_pos = pcall(vim.fn.searchpairpos, "\\[", "", "\\]", "nbW", "", 0, 100)
+    
+    vim.api.nvim_win_set_cursor(0, saved_cursor)
+    
+    if ok and match_pos and match_pos[1] > 0 and match_pos[2] > 0 then
+      local match_line = match_pos[1]
+      local match_col = match_pos[2]
+      
+      vim.api.nvim_buf_add_highlight(
+        bufnr,
+        namespace,
+        M.config.highlight_group,
+        first_selected_line - 1,
+        close_bracket_col - 1,
+        close_bracket_col
+      )
+      
+      vim.api.nvim_buf_add_highlight(
+        bufnr,
+        namespace,
+        M.config.highlight_group,
+        match_line - 1,
+        match_col - 1,
+        match_col
+      )
+    end
   end
 end
 
