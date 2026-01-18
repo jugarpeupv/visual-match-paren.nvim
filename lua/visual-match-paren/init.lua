@@ -58,14 +58,10 @@ function M.highlight_matching_brace()
   local cursor_line = cursor_pos[1]
   
   local start_pos = vim.fn.getpos("v")
-  local end_pos = vim.fn.getpos(".")
   
-  local start_line = start_pos[2]
-  local end_line = end_pos[2]
+  local first_selected_line = start_pos[2]
   
-  local last_selected_line = math.max(start_line, end_line)
-  
-  local line = vim.api.nvim_buf_get_lines(bufnr, last_selected_line - 1, last_selected_line, false)[1]
+  local line = vim.api.nvim_buf_get_lines(bufnr, first_selected_line - 1, first_selected_line, false)[1]
   
   if not line then
     return
@@ -82,7 +78,7 @@ function M.highlight_matching_brace()
   end
   
   local saved_cursor = vim.api.nvim_win_get_cursor(0)
-  vim.api.nvim_win_set_cursor(0, {last_selected_line, open_brace_col - 1})
+  vim.api.nvim_win_set_cursor(0, {first_selected_line, open_brace_col - 1})
   
   local ok, match_pos = pcall(vim.fn.searchpairpos, "{", "", "}", "nW", "", 0, 100)
   
@@ -91,6 +87,15 @@ function M.highlight_matching_brace()
   if ok and match_pos and match_pos[1] > 0 and match_pos[2] > 0 then
     local match_line = match_pos[1]
     local match_col = match_pos[2]
+    
+    vim.api.nvim_buf_add_highlight(
+      bufnr,
+      namespace,
+      M.config.highlight_group,
+      first_selected_line - 1,
+      open_brace_col - 1,
+      open_brace_col
+    )
     
     vim.api.nvim_buf_add_highlight(
       bufnr,
