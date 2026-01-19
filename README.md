@@ -2,10 +2,6 @@
 
 A Neovim plugin that highlights matching pairs of braces `{}` and brackets `[]` when you visually select lines containing them.
 
-## Demo
-
-![Demo](media/visual-match-paren.gif)
-
 ## Features
 
 - Automatically highlights matching pairs for braces `{}` and brackets `[]`
