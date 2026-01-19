@@ -4,7 +4,7 @@ A Neovim plugin that highlights matching pairs of braces `{}` and brackets `[]` 
 
 ## Demo
 
-<video src="https://github.com/jugarpeupv/visual-match-paren.nvim/raw/main/media/visual-match-paren.mp4" controls></video>
+![Demo](media/visual-match-paren.gif)
 
 ## Features
 
