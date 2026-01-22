@@ -167,7 +167,14 @@ function M.highlight_matching_brace()
 			end
 			
 			if start_row and end_row and end_row > start_row then
-				highlight_scope(bufnr, start_row + 1, end_row + 1)
+				-- Ensure the range is within buffer bounds
+				local line_count = vim.api.nvim_buf_line_count(bufnr)
+				start_row = math.max(0, start_row)
+				end_row = math.min(end_row, line_count - 1)
+				
+				if end_row > start_row then
+					highlight_scope(bufnr, start_row + 1, end_row + 1)
+				end
 			end
 		end
 	end
@@ -329,6 +336,16 @@ function M.select_scope()
 		return
 	end
 
+	-- Ensure the range is within buffer bounds
+	local bufnr = vim.api.nvim_get_current_buf()
+	local line_count = vim.api.nvim_buf_line_count(bufnr)
+	start_row = math.max(0, start_row)
+	end_row = math.min(end_row, line_count - 1)
+
+	if end_row <= start_row then
+		return
+	end
+
 	-- Save previous selection if in visual mode
 	local prev_start, prev_end = current_line, current_line
 	if mode:match("[vV\x16]") then
@@ -343,15 +360,18 @@ function M.select_scope()
 		vim.cmd("normal! V")
 	end
 
-	-- Select from start to end line
-	vim.api.nvim_win_set_cursor(0, { start_row + 1, 0 })
+	-- Select from start to end line (convert to 1-indexed)
+	local start_line = start_row + 1
+	local end_line = end_row + 1
+	
+	vim.api.nvim_win_set_cursor(0, { start_line, 0 })
 	vim.cmd("normal! o")
-	vim.api.nvim_win_set_cursor(0, { end_row + 1, 0 })
+	vim.api.nvim_win_set_cursor(0, { end_line, 0 })
 
 	-- Save this selection for toggle
 	last_scope_selection = {
-		scope_start = start_row + 1,
-		scope_end = end_row + 1,
+		scope_start = start_line,
+		scope_end = end_line,
 		prev_start = prev_start,
 		prev_end = prev_end,
 	}
