@@ -1,11 +1,18 @@
 local M = {}
 
 local namespace = vim.api.nvim_create_namespace("visual-match-paren")
+local scope_namespace = vim.api.nvim_create_namespace("visual-match-paren-scope")
 
 M.config = {
 	highlight_group = "MatchParen",
+	scope_highlight_group = "MatchParen",
 	enabled = true,
+	scope_enabled = true,
+	scope_textobject = "I", -- Text object for inner scope
 }
+
+-- Track previous selection for toggle behavior
+local last_scope_selection = nil
 
 function M.setup(opts)
 	M.config = vim.tbl_deep_extend("force", M.config, opts or {})
@@ -35,11 +42,87 @@ function M.setup(opts)
 		end,
 		nested = false,
 	})
+
+	-- Setup text object for scope selection
+	if M.config.scope_textobject and M.config.scope_textobject ~= "" then
+		vim.keymap.set({ "x", "o" }, M.config.scope_textobject, function()
+			M.select_scope()
+		end, { desc = "Select inner scope" })
+	end
 end
 
 function M.clear_highlight()
 	local bufnr = vim.api.nvim_get_current_buf()
 	vim.api.nvim_buf_clear_namespace(bufnr, namespace, 0, -1)
+	vim.api.nvim_buf_clear_namespace(bufnr, scope_namespace, 0, -1)
+end
+
+local function get_node_at_line(line_number)
+	local row = line_number - 1
+	local col = 0
+
+	local ok, root_parser = pcall(vim.treesitter.get_parser, 0, nil, {})
+	if not ok or not root_parser then
+		return
+	end
+
+	root_parser:parse({ vim.fn.line("w0") - 1, vim.fn.line("w$") })
+	local lang_tree = root_parser:language_for_range({ row, col, row, col })
+
+	return lang_tree:named_node_for_range({ row, col, row, col }, { ignore_injections = false })
+end
+
+local function get_inner_scope_range(node, line_number)
+	if not node then
+		return nil
+	end
+
+	-- Try to find a child node that represents the content/value
+	-- This works for YAML block mappings where we want the value part
+	for child in node:iter_children() do
+		local child_start_row, _, child_end_row, _ = child:range()
+		-- If child starts after the selected line, it's likely the nested content
+		if child_start_row >= line_number then
+			return child_start_row, child_end_row
+		end
+	end
+
+	-- Fallback: use the node's own range if it spans multiple lines
+	local start_row, _, end_row, _ = node:range()
+	if end_row > start_row and start_row == line_number - 1 then
+		-- Return range excluding the first line (the key line itself)
+		return start_row + 1, end_row
+	end
+
+	return nil
+end
+
+local function get_parent_scope_range(node, line_number)
+	if not node then
+		return nil
+	end
+
+	local parent = node:parent()
+	if not parent then
+		return nil
+	end
+
+	-- Find a sibling or parent scope that contains this line
+	local start_row, _, end_row, _ = parent:range()
+	if end_row > start_row then
+		return start_row, end_row
+	end
+
+	return nil
+end
+
+local function highlight_scope(bufnr, start_line, end_line)
+	for line = start_line, end_line do
+		vim.api.nvim_buf_set_extmark(bufnr, scope_namespace, line - 1, 0, {
+			number_hl_group = M.config.scope_highlight_group,
+			priority = 100,
+		})
+	end
 end
 
 function M.highlight_matching_brace()
@@ -71,6 +154,23 @@ function M.highlight_matching_brace()
 	end
 
 	local saved_cursor = vim.api.nvim_win_get_cursor(0)
+
+	-- Try to highlight scope using treesitter
+	if M.config.scope_enabled then
+		local node = get_node_at_line(first_selected_line)
+		if node then
+			local start_row, end_row = get_inner_scope_range(node, first_selected_line - 1)
+			
+			-- If no inner scope, try parent scope
+			if not start_row or not end_row or end_row <= start_row then
+				start_row, end_row = get_parent_scope_range(node, first_selected_line - 1)
+			end
+			
+			if start_row and end_row and end_row > start_row then
+				highlight_scope(bufnr, start_row + 1, end_row + 1)
+			end
+		end
+	end
 
 	-- Check if line ends with opening brace
 	if trimmed:match("{$") then
@@ -188,6 +288,73 @@ function M.toggle()
 	if not M.config.enabled then
 		M.clear_highlight()
 	end
+end
+
+function M.select_scope()
+	local cursor_pos = vim.api.nvim_win_get_cursor(0)
+	local current_line = cursor_pos[1]
+
+	-- Check if we're toggling back to previous selection
+	local mode = vim.api.nvim_get_mode().mode
+	if mode:match("[vV\x16]") and last_scope_selection then
+		local visual_start = vim.fn.getpos("v")
+		local visual_end = vim.api.nvim_win_get_cursor(0)
+		local start_line = math.min(visual_start[2], visual_end[1])
+		local end_line = math.max(visual_start[2], visual_end[1])
+
+		-- If current selection matches last scope selection, restore previous
+		if last_scope_selection.scope_start == start_line and last_scope_selection.scope_end == end_line then
+			vim.api.nvim_win_set_cursor(0, { last_scope_selection.prev_start, 0 })
+			vim.cmd("normal! o")
+			vim.api.nvim_win_set_cursor(0, { last_scope_selection.prev_end, 0 })
+			last_scope_selection = nil
+			return
+		end
+	end
+
+	local node = get_node_at_line(current_line)
+	if not node then
+		return
+	end
+
+	-- Try to get inner scope first
+	local start_row, end_row = get_inner_scope_range(node, current_line - 1)
+	
+	-- If no inner scope, try parent scope
+	if not start_row or not end_row or end_row <= start_row then
+		start_row, end_row = get_parent_scope_range(node, current_line - 1)
+	end
+
+	if not start_row or not end_row or end_row <= start_row then
+		return
+	end
+
+	-- Save previous selection if in visual mode
+	local prev_start, prev_end = current_line, current_line
+	if mode:match("[vV\x16]") then
+		local visual_start = vim.fn.getpos("v")
+		local visual_end = vim.api.nvim_win_get_cursor(0)
+		prev_start = math.min(visual_start[2], visual_end[1])
+		prev_end = math.max(visual_start[2], visual_end[1])
+	end
+
+	-- Enter visual line mode if not already in visual mode
+	if not mode:match("[vV\x16]") then
+		vim.cmd("normal! V")
+	end
+
+	-- Select from start to end line
+	vim.api.nvim_win_set_cursor(0, { start_row + 1, 0 })
+	vim.cmd("normal! o")
+	vim.api.nvim_win_set_cursor(0, { end_row + 1, 0 })
+
+	-- Save this selection for toggle
+	last_scope_selection = {
+		scope_start = start_row + 1,
+		scope_end = end_row + 1,
+		prev_start = prev_start,
+		prev_end = prev_end,
+	}
 end
 
 return M
