@@ -4,7 +4,11 @@ A Neovim plugin that highlights matching pairs of braces `{}` and brackets `[]` 
 
 ## Demo
 
+### Brace/Bracket Matching
 ![Demo](media/demo.gif)
+
+### Scope Highlighting & Text Object
+![Scope Demo](media/demo2.gif)
 
 ## Features
 
