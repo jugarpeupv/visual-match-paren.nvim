@@ -77,6 +77,44 @@ local function get_inner_scope_range(node, line_number)
 		return nil
 	end
 
+	local node_type = node:type()
+	local start_row, _, end_row, _ = node:range()
+	
+	-- Check if the current node itself is a scope-defining node (function, class, etc.)
+	-- and the selected line is at the start of this node
+	if start_row == line_number then
+		-- For functions/classes, we want the entire node range (including closing brace)
+		-- not just the body
+		if node_type:match("function") or 
+		   node_type:match("class") or
+		   node_type:match("method") then
+			-- Use the full node range which includes the closing brace
+			if end_row > start_row then
+				return start_row, end_row
+			end
+		end
+		
+		-- Look for a body/block child node (for other constructs)
+		for child in node:iter_children() do
+			local child_type = child:type()
+			-- Match common body/block node types across languages
+			if child_type:match("body") or 
+			   child_type:match("block") or 
+			   child_type == "statement_block" then
+				local child_start_row, _, child_end_row, _ = child:range()
+				if child_end_row > child_start_row then
+					return child_start_row, child_end_row
+				end
+			end
+		end
+		
+		-- If this node spans multiple lines and starts at the selected line,
+		-- use the node's range itself
+		if end_row > start_row then
+			return start_row, end_row
+		end
+	end
+
 	-- Try to find a child node that represents the content/value
 	-- This works for YAML block mappings where we want the value part
 	for child in node:iter_children() do
@@ -88,7 +126,6 @@ local function get_inner_scope_range(node, line_number)
 	end
 
 	-- Fallback: use the node's own range if it spans multiple lines
-	local start_row, _, end_row, _ = node:range()
 	if end_row > start_row and start_row == line_number - 1 then
 		-- Return range excluding the first line (the key line itself)
 		return start_row + 1, end_row
@@ -173,6 +210,11 @@ function M.highlight_matching_brace()
 				end_row = math.min(end_row, line_count - 1)
 				
 				if end_row > start_row then
+					-- treesitter ranges are 0-indexed with exclusive end
+					-- Example: [63, 84) means rows 63-83 inclusive (0-indexed) = lines 64-84 (1-indexed)
+					-- But since we check end_col, if range is [63:0, 84:1], it includes row 84 col 0
+					-- For line-based highlighting, we treat end_row as the last line to check
+					-- So: start_line = start_row + 1, end_line = end_row + 1
 					highlight_scope(bufnr, start_row + 1, end_row + 1)
 				end
 			end
@@ -361,6 +403,8 @@ function M.select_scope()
 	end
 
 	-- Select from start to end line (convert to 1-indexed)
+	-- treesitter ranges are 0-indexed with exclusive end
+	-- For line highlighting, we include the end_row
 	local start_line = start_row + 1
 	local end_line = end_row + 1
 	

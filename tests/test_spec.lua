@@ -240,4 +240,133 @@ describe("visual-match-paren", function()
       vim.cmd("normal! \\<ESC>")
     end)
   end)
+
+  describe("TypeScript function scope highlighting", function()
+    before_each(function()
+      vim.cmd("set filetype=typescript")
+    end)
+
+    it("should highlight only the function scope when selecting function declaration line", function()
+      local ts_content = {
+        'import { readFileSync } from "fs";',
+        '',
+        'export async function generateNxWorkspace(options: {',
+        '  nxVersion: string;',
+        '  outputPath: string;',
+        '}) {',
+        '  console.log("starting");',
+        '  return true;',
+        '}',
+        '',
+        'function checkForNpmInstallationLogErrors(message: string) {',
+        '  const logFileMatch = message.match(/Log file/);',
+        '  if (logFileMatch) {',
+        '    const logFilePath = logFileMatch[1];',
+        '    try {',
+        '      const logContent = readFileSync(logFilePath, "utf-8");',
+        '      console.log(logContent);',
+        '    } catch (err) {',
+        '      if (err instanceof Error) {',
+        '        console.error(err.message);',
+        '      } else {',
+        '        console.error("An unknown error occurred");',
+        '      }',
+        '    }',
+        '  }',
+        '}',
+      }
+      
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, ts_content)
+      vim.bo.filetype = 'typescript'
+      
+      -- Position cursor on line 11 (checkForNpmInstallationLogErrors function declaration)
+      vim.api.nvim_win_set_cursor(0, {11, 0})
+      
+      -- Enter visual mode and select the line
+      vim.cmd("normal! V")
+      
+      -- Trigger the highlighting
+      visual_match_paren.highlight_matching_brace()
+      
+      -- Get scope highlights (different namespace)
+      local scope_namespace = vim.api.nvim_create_namespace("visual-match-paren-scope")
+      local scope_highlights = vim.api.nvim_buf_get_extmarks(0, scope_namespace, 0, -1, {details = true})
+      
+      -- Should highlight the function body (lines 12-25), not the entire file
+      assert.is_true(#scope_highlights > 0, "Expected scope highlights")
+      
+      -- Check that the first highlighted line is line 12 (start of function body)
+      local first_highlight_line = scope_highlights[1][2] + 1
+      assert.is_true(first_highlight_line >= 11, "First highlight should be at or after line 11")
+      
+      -- Check that the last highlighted line is line 26 (end of function)
+      local last_highlight_line = scope_highlights[#scope_highlights][2] + 1
+      assert.equals(26, last_highlight_line, "Last highlight should be line 26 (end of function)")
+      
+      -- Ensure we didn't highlight the entire file (which would include line 1)
+      local has_line_1 = false
+      for _, mark in ipairs(scope_highlights) do
+        if mark[2] + 1 == 1 then
+          has_line_1 = true
+          break
+        end
+      end
+      assert.is_false(has_line_1, "Should not highlight line 1 when selecting function on line 11")
+      
+      vim.cmd("normal! \\<ESC>")
+    end)
+
+    it("should highlight function scope when selecting first function", function()
+      local ts_content = {
+        'import { readFileSync } from "fs";',
+        '',
+        'export async function generateNxWorkspace(options: {',
+        '  nxVersion: string;',
+        '  outputPath: string;',
+        '}) {',
+        '  console.log("starting");',
+        '  return true;',
+        '}',
+        '',
+        'function checkForNpm() {',
+        '  console.log("check");',
+        '}',
+      }
+      
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, ts_content)
+      vim.bo.filetype = 'typescript'
+      
+      -- Position cursor on line 3 (generateNxWorkspace function declaration)
+      vim.api.nvim_win_set_cursor(0, {3, 0})
+      
+      -- Enter visual mode and select the line
+      vim.cmd("normal! V")
+      
+      -- Trigger the highlighting
+      visual_match_paren.highlight_matching_brace()
+      
+      -- Get scope highlights
+      local scope_namespace = vim.api.nvim_create_namespace("visual-match-paren-scope")
+      local scope_highlights = vim.api.nvim_buf_get_extmarks(0, scope_namespace, 0, -1, {details = true})
+      
+      -- Should highlight the function (lines 3-9), not the entire file
+      assert.is_true(#scope_highlights > 0, "Expected scope highlights")
+      
+      -- Check that we didn't highlight beyond line 9
+      local last_highlight_line = scope_highlights[#scope_highlights][2] + 1
+      assert.is_true(last_highlight_line <= 9, "Should not highlight beyond line 9")
+      
+      -- Ensure we didn't highlight line 11 (different function)
+      local has_line_11 = false
+      for _, mark in ipairs(scope_highlights) do
+        if mark[2] + 1 == 11 then
+          has_line_11 = true
+          break
+        end
+      end
+      assert.is_false(has_line_11, "Should not highlight line 11 when selecting function on line 3")
+      
+      vim.cmd("normal! \\<ESC>")
+    end)
+  end)
 end)
