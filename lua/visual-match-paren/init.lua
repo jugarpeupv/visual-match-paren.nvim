@@ -9,10 +9,20 @@ M.config = {
 	enabled = true,
 	scope_enabled = true,
 	scope_textobject = "I", -- Text object for inner scope
+	incremental_selection = {
+		enabled = true,
+		keymaps = {
+			increment = "<Tab>",
+			decrement = "<S-Tab>",
+		},
+	},
 }
 
 -- Track previous selection for toggle behavior
 local last_scope_selection = nil
+
+-- Stack to track incremental selections (for decrementing)
+local selection_stack = {}
 
 function M.setup(opts)
 	M.config = vim.tbl_deep_extend("force", M.config, opts or {})
@@ -48,6 +58,20 @@ function M.setup(opts)
 		vim.keymap.set({ "x", "o" }, M.config.scope_textobject, function()
 			M.select_scope()
 		end, { desc = "Select inner scope" })
+	end
+
+	-- Setup incremental selection keymaps
+	if M.config.incremental_selection.enabled then
+		if M.config.incremental_selection.keymaps.increment and M.config.incremental_selection.keymaps.increment ~= "" then
+			vim.keymap.set("x", M.config.incremental_selection.keymaps.increment, function()
+				M.increment_selection()
+			end, { desc = "Increment node selection" })
+		end
+		if M.config.incremental_selection.keymaps.decrement and M.config.incremental_selection.keymaps.decrement ~= "" then
+			vim.keymap.set("x", M.config.incremental_selection.keymaps.decrement, function()
+				M.decrement_selection()
+			end, { desc = "Decrement node selection" })
+		end
 	end
 end
 
@@ -419,6 +443,120 @@ function M.select_scope()
 		prev_start = prev_start,
 		prev_end = prev_end,
 	}
+end
+
+local function get_visual_selection_range()
+	local visual_start = vim.fn.getpos("v")
+	local visual_end = vim.api.nvim_win_get_cursor(0)
+	local start_line = math.min(visual_start[2], visual_end[1])
+	local end_line = math.max(visual_start[2], visual_end[1])
+	local start_col = visual_start[3] - 1
+	local end_col = visual_end[2]
+	return start_line, start_col, end_line, end_col
+end
+
+local function get_node_at_range(start_line, start_col, end_line, end_col)
+	local start_row = start_line - 1
+	local end_row = end_line - 1
+
+	local ok, root_parser = pcall(vim.treesitter.get_parser, 0, nil, {})
+	if not ok or not root_parser then
+		return nil
+	end
+
+	root_parser:parse({ vim.fn.line("w0") - 1, vim.fn.line("w$") })
+	local lang_tree = root_parser:language_for_range({ start_row, start_col, end_row, end_col })
+
+	return lang_tree:named_node_for_range({ start_row, start_col, end_row, end_col }, { ignore_injections = false })
+end
+
+function M.increment_selection()
+	if not M.config.incremental_selection.enabled then
+		return
+	end
+
+	local mode = vim.api.nvim_get_mode().mode
+	if not mode:match("[vV\x16]") then
+		return
+	end
+
+	local start_line, start_col, end_line, end_col = get_visual_selection_range()
+	
+	-- Save current selection to stack
+	table.insert(selection_stack, {
+		start_line = start_line,
+		start_col = start_col,
+		end_line = end_line,
+		end_col = end_col,
+	})
+
+	local node = get_node_at_range(start_line, start_col, end_line, end_col)
+	if not node then
+		-- If no node found, remove from stack
+		table.remove(selection_stack)
+		return
+	end
+
+	-- Get parent node
+	local parent = node:parent()
+	if not parent then
+		-- If no parent, remove from stack
+		table.remove(selection_stack)
+		return
+	end
+
+	local p_start_row, p_start_col, p_end_row, p_end_col = parent:range()
+	
+	-- Ensure the parent is actually larger than current selection
+	if p_start_row >= start_line - 1 and p_end_row <= end_line - 1 then
+		-- Parent is not larger, remove from stack
+		table.remove(selection_stack)
+		return
+	end
+
+	-- Ensure the range is within buffer bounds
+	local bufnr = vim.api.nvim_get_current_buf()
+	local line_count = vim.api.nvim_buf_line_count(bufnr)
+	p_start_row = math.max(0, p_start_row)
+	p_end_row = math.min(p_end_row, line_count - 1)
+
+	-- Select the parent node range
+	local new_start_line = p_start_row + 1
+	local new_end_line = p_end_row + 1
+
+	-- In visual mode, set cursor to start of parent range
+	vim.api.nvim_win_set_cursor(0, { new_start_line, p_start_col })
+	
+	-- Toggle to other end of selection
+	vim.cmd("normal! o")
+	
+	-- Move to end of parent range
+	local end_line_text = vim.api.nvim_buf_get_lines(bufnr, p_end_row, p_end_row + 1, false)[1] or ""
+	local final_col = math.min(p_end_col, #end_line_text)
+	vim.api.nvim_win_set_cursor(0, { new_end_line, final_col })
+end
+
+function M.decrement_selection()
+	if not M.config.incremental_selection.enabled then
+		return
+	end
+
+	local mode = vim.api.nvim_get_mode().mode
+	if not mode:match("[vV\x16]") then
+		return
+	end
+
+	-- Pop from selection stack
+	if #selection_stack == 0 then
+		return
+	end
+
+	local prev_selection = table.remove(selection_stack)
+	
+	-- Restore previous selection
+	vim.api.nvim_win_set_cursor(0, { prev_selection.start_line, prev_selection.start_col })
+	vim.cmd("normal! o")
+	vim.api.nvim_win_set_cursor(0, { prev_selection.end_line, prev_selection.end_col })
 end
 
 return M

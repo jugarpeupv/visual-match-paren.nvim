@@ -1,0 +1,12 @@
+:VisualMatchParenToggle	visual-match-paren.txt	/*:VisualMatchParenToggle*
+visual-match-paren-commands	visual-match-paren.txt	/*visual-match-paren-commands*
+visual-match-paren-config	visual-match-paren.txt	/*visual-match-paren-config*
+visual-match-paren-contents	visual-match-paren.txt	/*visual-match-paren-contents*
+visual-match-paren-features	visual-match-paren.txt	/*visual-match-paren-features*
+visual-match-paren-highlights	visual-match-paren.txt	/*visual-match-paren-highlights*
+visual-match-paren-installation	visual-match-paren.txt	/*visual-match-paren-installation*
+visual-match-paren-intro	visual-match-paren.txt	/*visual-match-paren-intro*
+visual-match-paren-license	visual-match-paren.txt	/*visual-match-paren-license*
+visual-match-paren-usage	visual-match-paren.txt	/*visual-match-paren-usage*
+visual-match-paren.setup()	visual-match-paren.txt	/*visual-match-paren.setup()*
+visual-match-paren.txt	visual-match-paren.txt	/*visual-match-paren.txt*

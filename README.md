@@ -17,6 +17,7 @@ A Neovim plugin that highlights matching pairs of braces `{}` and brackets `[]` 
 - Supports backward matching: select a line starting with `}` or `]` to highlight the opening pair
 - **NEW:** Highlights the scope of any visually selected line using treesitter (line numbers only)
 - **NEW:** Text object for selecting inner scope (`I` by default)
+- **NEW:** Incremental/decremental node selection using treesitter (`<Tab>`/`<S-Tab>` by default)
 - Works in visual, visual-line, and visual-block modes
 - Customizable highlight groups
 - Lightweight and performant
@@ -36,6 +37,13 @@ A Neovim plugin that highlights matching pairs of braces `{}` and brackets `[]` 
       enabled = true,                       -- Enable/disable brace/bracket matching (default: true)
       scope_enabled = true,                 -- Enable/disable scope highlighting (default: true)
       scope_textobject = "I",               -- Text object for inner scope (default: "I", set to "" to disable)
+      incremental_selection = {
+        enabled = true,                     -- Enable/disable incremental selection (default: true)
+        keymaps = {
+          increment = "<Tab>",              -- Key to increment node selection (default: "<Tab>")
+          decrement = "<S-Tab>",            -- Key to decrement node selection (default: "<S-Tab>")
+        },
+      },
     })
   end,
 }
@@ -123,6 +131,41 @@ Position your cursor on `- Microfrontends:` and press `VI` to select all nested 
 2. Press `I` → expands to scope
 3. Press `I` again → returns to your original single line selection
 
+### Incremental/Decremental Node Selection
+
+Use `<Tab>` and `<S-Tab>` (configurable) to incrementally expand or shrink your visual selection based on treesitter syntax nodes:
+
+- **Increment selection (`<Tab>`)**: Expand the current visual selection to the parent syntax node
+- **Decrement selection (`<S-Tab>`)**: Shrink the selection back to the previous node
+
+#### How to use
+
+1. Enter visual mode (e.g., `V` for line-wise, or `v` for character-wise)
+2. Optionally use the `I` text object to select a scope
+3. Press `<Tab>` to expand selection to the parent node
+4. Press `<Tab>` again to continue expanding to larger parent nodes
+5. Press `<S-Tab>` to shrink back to the previous selection
+
+#### Example workflow
+
+```lua
+function hello()
+  local x = 1
+  if x > 0 then
+    print("positive")
+  end
+end
+```
+
+1. Position cursor on `print("positive")` and press `V` to select the line
+2. Press `<Tab>` → expands to the if block
+3. Press `<Tab>` → expands to the function body
+4. Press `<Tab>` → expands to the entire function
+5. Press `<S-Tab>` → shrinks back to the function body
+6. Press `<S-Tab>` → shrinks back to the if block
+
+This feature is powered by treesitter and works with any language that has a treesitter parser installed.
+
 ## Commands
 
 - `:VisualMatchParenToggle` - Toggle the plugin on/off
@@ -138,6 +181,13 @@ require("visual-match-paren").setup({
   enabled = true,                       -- Enable brace/bracket matching by default
   scope_enabled = true,                 -- Enable scope highlighting by default
   scope_textobject = "I",               -- Text object for inner scope (set to "" to disable)
+  incremental_selection = {
+    enabled = true,                     -- Enable incremental selection feature
+    keymaps = {
+      increment = "<Tab>",              -- Key to increment node selection
+      decrement = "<S-Tab>",            -- Key to decrement node selection
+    },
+  },
 })
 ```
 
@@ -158,6 +208,20 @@ To use a different key for the text object:
 require("visual-match-paren").setup({
   scope_textobject = "S", -- Use 'S' instead of 'I'
   -- or set to "" to disable the text object mapping
+})
+```
+
+To customize the incremental selection keymaps or disable the feature:
+
+```lua
+require("visual-match-paren").setup({
+  incremental_selection = {
+    enabled = true,  -- Set to false to disable the feature
+    keymaps = {
+      increment = "<C-n>",  -- Use Ctrl+n to increment
+      decrement = "<C-p>",  -- Use Ctrl+p to decrement
+    },
+  },
 })
 ```
 
@@ -182,6 +246,18 @@ This ensures that nested structures are matched correctly, even in deeply nested
 4. Only highlights if the scope is meaningful (more than just the current line)
 
 This feature requires treesitter to be installed and a parser available for the current filetype.
+
+### Incremental/Decremental Selection
+
+1. When you press the increment key (default `<Tab>`) in visual mode:
+   - Gets the treesitter node at the current selection
+   - Finds the parent node and expands the selection to match it
+   - Saves the previous selection to a stack for decrementing
+2. When you press the decrement key (default `<S-Tab>`):
+   - Pops the previous selection from the stack
+   - Restores that selection
+
+This allows you to navigate the syntax tree structure of your code naturally, expanding and shrinking selections based on the actual syntax nodes.
 
 ## Testing
 
