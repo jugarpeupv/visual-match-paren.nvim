@@ -363,6 +363,52 @@ function M.toggle()
 	end
 end
 
+local function find_scope_with_matchpair(current_line)
+	local bufnr = vim.api.nvim_get_current_buf()
+	local line = vim.api.nvim_buf_get_lines(bufnr, current_line - 1, current_line, false)[1]
+	if not line then
+		return nil
+	end
+
+	local trimmed = line:match("^%s*(.-)%s*$")
+	if not trimmed then
+		return nil
+	end
+
+	local saved_cursor = vim.api.nvim_win_get_cursor(0)
+	local start_row, end_row
+
+	-- Check if line ends with opening brace {
+	if trimmed:match("{$") then
+		local open_brace_col = line:find("{[^{]*$")
+		if open_brace_col then
+			vim.api.nvim_win_set_cursor(0, { current_line, open_brace_col - 1 })
+			local ok, match_pos = pcall(vim.fn.searchpairpos, "{", "", "}", "nW", "", 0, 100)
+			vim.api.nvim_win_set_cursor(0, saved_cursor)
+			
+			if ok and match_pos and match_pos[1] > 0 and match_pos[2] > 0 then
+				start_row = current_line - 1
+				end_row = match_pos[1] - 1
+			end
+		end
+	-- Check if line ends with opening bracket [
+	elseif trimmed:match("%[$") then
+		local open_bracket_col = line:find("%[[^%[]*$")
+		if open_bracket_col then
+			vim.api.nvim_win_set_cursor(0, { current_line, open_bracket_col - 1 })
+			local ok, match_pos = pcall(vim.fn.searchpairpos, "\\[", "", "\\]", "nW", "", 0, 100)
+			vim.api.nvim_win_set_cursor(0, saved_cursor)
+			
+			if ok and match_pos and match_pos[1] > 0 and match_pos[2] > 0 then
+				start_row = current_line - 1
+				end_row = match_pos[1] - 1
+			end
+		end
+	end
+
+	return start_row, end_row
+end
+
 function M.select_scope()
 	local cursor_pos = vim.api.nvim_win_get_cursor(0)
 	local current_line = cursor_pos[1]
@@ -385,17 +431,22 @@ function M.select_scope()
 		end
 	end
 
+	local start_row, end_row
 	local node = get_node_at_line(current_line)
-	if not node then
-		return
+	
+	if node then
+		-- Try to get inner scope first
+		start_row, end_row = get_inner_scope_range(node, current_line - 1)
+		
+		-- If no inner scope, try parent scope
+		if not start_row or not end_row or end_row <= start_row then
+			start_row, end_row = get_parent_scope_range(node, current_line - 1)
+		end
 	end
 
-	-- Try to get inner scope first
-	local start_row, end_row = get_inner_scope_range(node, current_line - 1)
-	
-	-- If no inner scope, try parent scope
+	-- Fallback: if treesitter didn't find a scope, try matching pairs
 	if not start_row or not end_row or end_row <= start_row then
-		start_row, end_row = get_parent_scope_range(node, current_line - 1)
+		start_row, end_row = find_scope_with_matchpair(current_line)
 	end
 
 	if not start_row or not end_row or end_row <= start_row then
