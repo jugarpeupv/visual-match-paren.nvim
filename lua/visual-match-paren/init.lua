@@ -28,7 +28,7 @@ function M.setup(opts)
 	M.config = vim.tbl_deep_extend("force", M.config, opts or {})
 
 	vim.api.nvim_create_autocmd("ModeChanged", {
-		pattern = "*:[vV\x16]*",
+		pattern = "*:V",
 		callback = function()
 			M.highlight_matching_brace()
 		end,
@@ -37,7 +37,7 @@ function M.setup(opts)
 	vim.api.nvim_create_autocmd("CursorMoved", {
 		pattern = "*",
 		callback = function()
-			if vim.fn.mode():match("[vV\x16]") then
+			if vim.fn.mode() == "V" then
 				M.highlight_matching_brace()
 			else
 				M.clear_highlight()
@@ -46,7 +46,7 @@ function M.setup(opts)
 	})
 
 	vim.api.nvim_create_autocmd("ModeChanged", {
-		pattern = "[vV\x16]*:*",
+		pattern = "V:*",
 		callback = function()
 			M.clear_highlight()
 		end,
@@ -194,7 +194,7 @@ function M.highlight_matching_brace()
 	M.clear_highlight()
 
 	local mode = vim.fn.mode()
-	if not mode:match("[vV\x16]") then
+	if mode ~= "V" then
 		return
 	end
 
@@ -415,7 +415,7 @@ function M.select_scope()
 
 	-- Check if we're toggling back to previous selection
 	local mode = vim.api.nvim_get_mode().mode
-	if mode:match("[vV\x16]") and last_scope_selection then
+	if mode == "V" and last_scope_selection then
 		local visual_start = vim.fn.getpos("v")
 		local visual_end = vim.api.nvim_win_get_cursor(0)
 		local start_line = math.min(visual_start[2], visual_end[1])
@@ -465,7 +465,7 @@ function M.select_scope()
 
 	-- Save previous selection if in visual mode
 	local prev_start, prev_end = current_line, current_line
-	if mode:match("[vV\x16]") then
+	if mode == "V" then
 		local visual_start = vim.fn.getpos("v")
 		local visual_end = vim.api.nvim_win_get_cursor(0)
 		prev_start = math.min(visual_start[2], visual_end[1])
@@ -473,7 +473,7 @@ function M.select_scope()
 	end
 
 	-- Enter visual line mode if not already in visual mode
-	if not mode:match("[vV\x16]") then
+	if mode ~= "V" then
 		vim.cmd("normal! V")
 	end
 
@@ -527,7 +527,7 @@ function M.increment_selection()
 	end
 
 	local mode = vim.api.nvim_get_mode().mode
-	if not mode:match("[vV\x16]") then
+	if mode ~= "V" then
 		return
 	end
 
@@ -593,7 +593,7 @@ function M.decrement_selection()
 	end
 
 	local mode = vim.api.nvim_get_mode().mode
-	if not mode:match("[vV\x16]") then
+	if mode ~= "V" then
 		return
 	end
 
