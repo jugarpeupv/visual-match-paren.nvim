@@ -55,9 +55,22 @@ function M.setup(opts)
 
 	-- Setup text object for scope selection
 	if M.config.scope_textobject and M.config.scope_textobject ~= "" then
-		vim.keymap.set({ "x", "o" }, M.config.scope_textobject, function()
+		-- Only map in operator-pending mode and visual mode, but in visual mode
+		-- we need to check that we're in V-LINE mode (not v-block) before acting
+		vim.keymap.set("o", M.config.scope_textobject, function()
 			M.select_scope()
 		end, { desc = "Select inner scope" })
+
+		vim.keymap.set("x", M.config.scope_textobject, function()
+			local mode = vim.fn.mode()
+			if mode == "V" then
+				M.select_scope()
+			else
+				-- Fallback to the default behavior of the key (e.g. block insert in <C-v>)
+				local key = vim.api.nvim_replace_termcodes(M.config.scope_textobject, true, false, true)
+				vim.api.nvim_feedkeys(key, "nt", false)
+			end
+		end, { desc = "Select inner scope (V-Line only)" })
 	end
 
 	-- Setup incremental selection keymaps
