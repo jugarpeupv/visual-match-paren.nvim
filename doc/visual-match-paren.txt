@@ -36,6 +36,7 @@ the matching opening character.
 - Customizable highlight group
 - Lightweight and performant
 - Correctly handles nested structures
+- Scope selection (`I`) and extend-to-scope (`O`) via treesitter
 
 ==============================================================================
 3. Installation                              *visual-match-paren-installation*
@@ -93,6 +94,32 @@ When you select the line `const arr = [`, the closing `]` will be
 highlighted. Similarly, selecting a line with the closing bracket will
 highlight its matching opening bracket.
 
+EXTEND SELECTION TO CURRENT LINE SCOPE                     *vmp-extend-scope*
+
+In visual-line mode, press `O` to extend your current selection to include
+the scope of the current cursor line, maintaining your previous selection.
+The selection is set to the union of the previous selection and the
+computed scope, so it never shrinks.
+
+Example: >
+    {
+      "document": {
+        "margin": 2
+      },
+      "block_quote": {
+        "indent": 0,
+        "margin": 1
+      }
+    }
+<
+Select from `"document"` to `"block_quote"` with `V`, keep the cursor on
+`"block_quote"`, then press `O`. The selection extends through the closing
+`}` of `block_quote`, covering the whole object.
+
+The scope is computed with treesitter, falling back to brace matching.
+Pressing `O` again re-scopes the new cursor line and is a no-op if that
+line has no scope.
+
 ==============================================================================
 5. Configuration                             *visual-match-paren-config*
 
@@ -106,6 +133,9 @@ setup({opts})
               matching pairs. Default: "MatchParen"
             • enabled (boolean): Enable the plugin by default.
               Default: true
+            • scope_extend_key (string): Key to extend the visual selection
+              to the current line's scope in visual-line mode. Default: "O".
+              Set to "" to disable.
 
     Usage: >lua
         require("visual-match-paren").setup({

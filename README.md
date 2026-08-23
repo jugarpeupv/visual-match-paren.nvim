@@ -17,6 +17,7 @@ A Neovim plugin that highlights matching pairs of braces `{}` and brackets `[]` 
 - Supports backward matching: select a line starting with `}` or `]` to highlight the opening pair
 - **NEW:** Highlights the scope of any visually selected line using treesitter (line numbers only)
 - **NEW:** Text object for selecting inner scope (`I` by default)
+- **NEW:** Extend visual selection to the current line's scope (`O` by default)
 - **NEW:** Incremental/decremental node selection using treesitter (`<Tab>`/`<S-Tab>` by default)
 - Works in visual, visual-line, and visual-block modes
 - Customizable highlight groups
@@ -37,6 +38,7 @@ A Neovim plugin that highlights matching pairs of braces `{}` and brackets `[]` 
       enabled = true,                       -- Enable/disable brace/bracket matching (default: true)
       scope_enabled = true,                 -- Enable/disable scope highlighting (default: true)
       scope_textobject = "I",               -- Text object for inner scope (default: "I", set to "" to disable)
+      scope_extend_key = "O",               -- Extend visual selection to current line's scope (default: "O", set to "" to disable)
       incremental_selection = {
         enabled = true,                     -- Enable/disable incremental selection (default: true)
         keymaps = {
@@ -131,6 +133,35 @@ Position your cursor on `- Microfrontends:` and press `VI` to select all nested 
 2. Press `I` → expands to scope
 3. Press `I` again → returns to your original single line selection
 
+### Extend Selection to Current Line's Scope
+
+Use `O` (configurable) in visual-line mode to extend your current selection to include the scope of the current line (the line under the cursor), maintaining your previous selection:
+
+- **From visual mode**: Select a few lines with `V`, move the cursor onto a line that opens a scope (e.g. `"block_quote": {`), then press `O` to extend the selection to the end of that scope
+
+#### Behavior
+
+1. Computes the scope of the current cursor line using treesitter (falling back to brace matching)
+2. Extends the visual selection to the **union** of the previous selection and that scope — the selection never shrinks
+3. Pressing `O` again recomputes the scope of the new cursor line (a no-op if that line has no scope)
+
+#### Example
+
+```json
+{
+  "document": {
+    "block_prefix": "\n",
+    "margin": 2
+  },
+  "block_quote": {
+    "indent": 0,
+    "margin": 1
+  }
+}
+```
+
+Select from `"document"` to `"block_quote"` with `V`, then press `O` while the cursor is on `"block_quote"`. The selection extends through `"block_quote"`'s closing `}`, covering the whole `block_quote` object while keeping the `document` line selected.
+
 ### Incremental/Decremental Node Selection
 
 Use `<Tab>` and `<S-Tab>` (configurable) to incrementally expand or shrink your visual selection based on treesitter syntax nodes:
@@ -181,6 +212,7 @@ require("visual-match-paren").setup({
   enabled = true,                       -- Enable brace/bracket matching by default
   scope_enabled = true,                 -- Enable scope highlighting by default
   scope_textobject = "I",               -- Text object for inner scope (set to "" to disable)
+  scope_extend_key = "O",               -- Key to extend selection to current line scope (set to "" to disable)
   incremental_selection = {
     enabled = true,                     -- Enable incremental selection feature
     keymaps = {
@@ -246,6 +278,12 @@ This ensures that nested structures are matched correctly, even in deeply nested
 4. Only highlights if the scope is meaningful (more than just the current line)
 
 This feature requires treesitter to be installed and a parser available for the current filetype.
+
+### Scope Selection & Extend-to-Scope
+
+1. The `I` text object uses treesitter (with a brace-matching fallback) to find the scope of the current line and selects it
+2. The `O` key (visual-line mode) computes the scope of the current cursor line the same way, then extends your current selection to cover the **union** of both ranges
+3. This lets you keep an existing selection while pulling in the full scope of the line under the cursor
 
 ### Incremental/Decremental Selection
 

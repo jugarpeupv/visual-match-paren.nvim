@@ -9,6 +9,7 @@ M.config = {
 	enabled = true,
 	scope_enabled = true,
 	scope_textobject = "I", -- Text object for inner scope
+	scope_extend_key = "O", -- Extend visual selection to current line scope
 	incremental_selection = {
 		enabled = true,
 		keymaps = {
@@ -71,6 +72,20 @@ function M.setup(opts)
 				vim.api.nvim_feedkeys(key, "nt", false)
 			end
 		end, { desc = "Select inner scope (V-Line only)" })
+	end
+
+	-- Setup extend-to-scope keymap (visual line mode only)
+	if M.config.scope_extend_key and M.config.scope_extend_key ~= "" then
+		vim.keymap.set("x", M.config.scope_extend_key, function()
+			local mode = vim.fn.mode()
+			if mode == "V" then
+				M.extend_selection()
+			else
+				-- Fallback to the default behavior of the key (e.g. move to other end in v/C-v)
+				local key = vim.api.nvim_replace_termcodes(M.config.scope_extend_key, true, false, true)
+				vim.api.nvim_feedkeys(key, "nt", false)
+			end
+		end, { desc = "Extend selection to current line scope (V-Line only)" })
 	end
 
 	-- Setup incremental selection keymaps
@@ -507,6 +522,63 @@ function M.select_scope()
 		prev_start = prev_start,
 		prev_end = prev_end,
 	}
+end
+
+function M.extend_selection()
+	local mode = vim.api.nvim_get_mode().mode
+	if mode ~= "V" then
+		return
+	end
+
+	local cursor_pos = vim.api.nvim_win_get_cursor(0)
+	local current_line = cursor_pos[1]
+
+	local visual_start = vim.fn.getpos("v")
+	local prev_start = math.min(visual_start[2], current_line)
+	local prev_end = math.max(visual_start[2], current_line)
+
+	local start_row, end_row
+	local node = get_node_at_line(current_line)
+
+	if node then
+		-- Try to get inner scope first
+		start_row, end_row = get_inner_scope_range(node, current_line - 1)
+
+		-- If no inner scope, try parent scope
+		if not start_row or not end_row or end_row <= start_row then
+			start_row, end_row = get_parent_scope_range(node, current_line - 1)
+		end
+	end
+
+	-- Fallback: if treesitter didn't find a scope, try matching pairs
+	if not start_row or not end_row or end_row <= start_row then
+		start_row, end_row = find_scope_with_matchpair(current_line)
+	end
+
+	if not start_row or not end_row or end_row <= start_row then
+		return
+	end
+
+	-- Ensure the range is within buffer bounds
+	local bufnr = vim.api.nvim_get_current_buf()
+	local line_count = vim.api.nvim_buf_line_count(bufnr)
+	start_row = math.max(0, start_row)
+	end_row = math.min(end_row, line_count - 1)
+
+	if end_row <= start_row then
+		return
+	end
+
+	local scope_start = start_row + 1
+	local scope_end = end_row + 1
+
+	-- Union with the previous selection, maintaining what was selected
+	local new_start = math.min(prev_start, scope_start)
+	local new_end = math.max(prev_end, scope_end)
+
+	vim.api.nvim_win_set_cursor(0, { new_start, 0 })
+	vim.cmd("normal! o")
+	vim.api.nvim_win_set_cursor(0, { new_end, 0 })
 end
 
 local function get_visual_selection_range()

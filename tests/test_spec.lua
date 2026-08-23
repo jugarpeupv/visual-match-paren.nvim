@@ -369,4 +369,87 @@ describe("visual-match-paren", function()
       vim.cmd("normal! \\<ESC>")
     end)
   end)
+
+  describe("extend selection to current line scope", function()
+    before_each(function()
+      vim.bo.filetype = "json"
+    end)
+
+    it("should extend to the current line scope maintaining previous selection", function()
+      local json_content = {
+        '{',
+        '  "document": {',
+        '    "block_prefix": "\\n",',
+        '    "block_suffix": "\\n",',
+        '    "margin": 2',
+        '  },',
+        '  "block_quote": {',
+        '    "indent": 0,',
+        '    "margin": 1',
+        '  },',
+        '}',
+      }
+
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, json_content)
+
+      -- Select from document line (2) to block_quote line (7), cursor on block_quote
+      vim.api.nvim_win_set_cursor(0, { 2, 0 })
+      vim.cmd("normal! V")
+      vim.api.nvim_win_set_cursor(0, { 7, 0 })
+
+      visual_match_paren.extend_selection()
+
+      -- Selection should now span document (2) through block_quote's closing brace line (10)
+      local visual_start = vim.fn.getpos("v")
+      local visual_end = vim.api.nvim_win_get_cursor(0)
+      assert.equals(2, visual_start[2], "Selection start should keep the document line")
+      assert.equals(10, visual_end[1], "Selection end should be the block_quote closing brace line")
+      assert.equals("V", vim.fn.mode(), "Should remain in visual line mode")
+    end)
+
+    it("should not shrink an already-enclosing selection", function()
+      local json_content = {
+        '{',
+        '  "document": {',
+        '    "margin": 2',
+        '  },',
+        '  "block_quote": {',
+        '    "indent": 0',
+        '  },',
+        '}',
+      }
+
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, json_content)
+
+      -- Select the whole object, cursor on block_quote's closing brace line (7)
+      vim.api.nvim_win_set_cursor(0, { 1, 0 })
+      vim.cmd("normal! V")
+      vim.api.nvim_win_set_cursor(0, { 7, 0 })
+
+      visual_match_paren.extend_selection()
+
+      local visual_start = vim.fn.getpos("v")
+      local visual_end = vim.api.nvim_win_get_cursor(0)
+      assert.equals(1, visual_start[2], "Selection start should be unchanged")
+      assert.equals(7, visual_end[1], "Selection end should be unchanged")
+    end)
+
+    it("should be a no-op outside visual line mode", function()
+      local json_content = {
+        '{',
+        '  "document": {',
+        '  },',
+        '}',
+      }
+
+      vim.api.nvim_buf_set_lines(0, 0, -1, false, json_content)
+
+      vim.api.nvim_win_set_cursor(0, { 2, 0 })
+      visual_match_paren.extend_selection()
+
+      local visual_end = vim.api.nvim_win_get_cursor(0)
+      assert.equals(2, visual_end[1], "Cursor should not move in normal mode")
+      assert.equals("n", vim.fn.mode(), "Should stay in normal mode")
+    end)
+  end)
 end)

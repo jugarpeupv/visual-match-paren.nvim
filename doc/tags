@@ -10,3 +10,4 @@ visual-match-paren-license	visual-match-paren.txt	/*visual-match-paren-license*
 visual-match-paren-usage	visual-match-paren.txt	/*visual-match-paren-usage*
 visual-match-paren.setup()	visual-match-paren.txt	/*visual-match-paren.setup()*
 visual-match-paren.txt	visual-match-paren.txt	/*visual-match-paren.txt*
+vmp-extend-scope	visual-match-paren.txt	/*vmp-extend-scope*
